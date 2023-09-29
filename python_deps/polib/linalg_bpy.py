@@ -135,6 +135,16 @@ def fit_plane_to_points(points):
     return (plane_normal, offset, centroid)
 
 
+def mean_position(vs: typing.Iterable[mathutils.Vector]) -> mathutils.Vector:
+    sum_v = mathutils.Vector()
+    n = 0
+    for v in vs:
+        n += 1
+        sum_v += v
+
+    return sum_v / n
+
+
 class PlaneFittingTest(unittest.TestCase):
     def test_3pts(self):
         # unit plane - (0, 0, 1), 0

@@ -196,6 +196,8 @@ class Preferences(bpy.types.AddonPreferences):
         col = row.column()
         addon_updater_ops.update_settings_ui(self, context, col)
 
+        polib.ui_bpy.draw_settings_footer(self.layout)
+
 
 ADDON_CLASSES.append(Preferences)
 
