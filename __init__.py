@@ -87,7 +87,7 @@ finally:
 bl_info = {
     "name": "blend1",
     "author": "polygoniq xyz s.r.o.",
-    "version": (1, 0, 0),
+    "version": (1, 0, 1),
     "blender": (3, 3, 0),
     "location": "blend one tab in the sidebar of the 3D View window",
     "description": "Allows you to save blend backup files in external location. Gives a new panel to recall backups.",
@@ -478,7 +478,7 @@ class BlendOnePanel(bpy.types.Panel):
     bl_context = "objectmode"
     bl_category = "polygoniq"
     bl_options = {'DEFAULT_CLOSED'}
-    bl_order = 100 + 5
+    bl_order = 200
 
     def draw_header(self, context: bpy.types.Context):
         self.layout.label(text="", icon_value=polib.ui_bpy.icon_manager.get_icon_id("logo_blend1"))

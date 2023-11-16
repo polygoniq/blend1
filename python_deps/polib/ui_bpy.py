@@ -10,7 +10,7 @@ ICON_DIR_NAME = "icons"
 
 
 class SocialMediaURL:
-    DISCORD = "https://www.polygoniq.com/discord"
+    DISCORD = "https://polygoniq.com/discord/"
     FACEBOOK = "https://www.facebook.com/polygoniq/"
     INSTAGRAM = "https://www.instagram.com/polygoniq.xyz/"
     BLENDERMARKET = "https://blendermarket.com/creators/polygoniq"
@@ -69,6 +69,19 @@ class IconManager:
 
 
 icon_manager = IconManager()
+
+
+def get_icon_parameters(our_icon_name: str, bpy_icon: str) -> typing.Dict:
+    """Returns dict of parameters that can be expanded in UILayout.label()
+
+    Uses our icon if it can be found by 'our_icon_name' and populates the 'icon_value',
+    otherwise populates the 'icon' by the 'bpy_icon'.
+    """
+    icon_id = icon_manager.get_polygoniq_addon_icon_id(our_icon_name)
+    if icon_id == 1:
+        return {"icon": bpy_icon}
+    else:
+        return {"icon_value": icon_id}
 
 
 def draw_social_media_buttons(layout: bpy.types.UILayout, show_text: bool = False):

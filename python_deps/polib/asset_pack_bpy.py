@@ -36,67 +36,20 @@ CustomAttributeValueType = typing.Union[
 ]
 
 
-class AssetAddon(enum.Enum):
-    botaniq = 'botaniq'
-    traffiq = 'traffiq'
-    aquatiq = 'aquatiq'
-
-    # The __eq__ and __hash__ methods need to be overriden for this enum so comparisons work as
-    # expected when using importlib.reload() which registers the class second time and if some other
-    # code wasn't reloaded (there are some instances of the non-reloaded enum left) then even the
-    # seemingly same values compare to False.
-    def __eq__(self, other):
-        if type(self).__qualname__ != type(other).__qualname__:
-            return False
-
-        return (self.name, self.value) == (other.name, other.value)
-
-    def __hash__(self):
-        return hash((self.name, self.value))
-
-
-# Maps asset addon names to blender Collection color_tags
-ASSET_ADDON_COLLECTION_COLOR_MAP = {
+# Maps asset pack names to blender Collection color_tags
+ASSET_PACK_COLLECTION_COLOR_MAP = {
     "botaniq": 'COLOR_04',  # green
     "traffiq": 'COLOR_02',  # orange
     "aquatiq": 'COLOR_05',  # blue
 }
 
 
-ASSET_ADDON_MODULE_NAMES = {
-    AssetAddon.botaniq: [
-        "botaniq_full",
-        "botaniq_lite",
-        "botaniq_starter",
-        "botaniq_addon_only",
-        "botaniq_addon"
-    ],
-    AssetAddon.traffiq: [
-        "traffiq_full",
-        "traffiq_lite",
-        "traffiq_starter",
-        "traffiq_addon_only",
-        "traffiq_addon"
-    ],
-    AssetAddon.aquatiq: [
-        "aquatiq_full",
-        "aquatiq_addon_only",
-        "aquatiq_addon"
-    ]
-}
-
-
-def find_asset_addon_bpy_preferences(addon: AssetAddon) -> typing.Optional[bpy.types.AddonPreferences]:
-    for module_name in ASSET_ADDON_MODULE_NAMES[addon]:
-        if module_name not in bpy.context.preferences.addons:
-            continue
-        return bpy.context.preferences.addons[module_name].preferences
-
-    return None
-
-
-PARTICLE_SYSTEM_PREFIX = "pps_"
+PARTICLE_SYSTEM_PREFIX = "bq_pps_"
 PREVIEW_NOT_FOUND = "No-Asset-Found"
+
+
+BOTANIQ_SEASONS = {"spring", "summer", "autumn", "winter"}
+
 
 # order matters, assets often have multiple seasons, color is set according to the first
 # matched season
@@ -133,195 +86,6 @@ class CustomPropertyNames:
     BQ_RANDOM_PER_BRANCH = "bq_random_per_branch"
     BQ_RANDOM_PER_LEAF = "bq_random_per_leaf"
     BQ_SEASON_OFFSET = "bq_season_offset"
-
-
-def get_name_category_map(previews_paths: typing.Iterable[str]) -> typing.Dict[str, str]:
-    ret = {}
-    for previews_path in previews_paths:
-        for path, _, files in os.walk(previews_path):
-            for file in files:
-                filename, ext = os.path.splitext(file)
-                if ext not in {".png", ".jpg"}:
-                    continue
-
-                _, category = os.path.split(path)
-                ret[filename] = category
-
-    return ret
-
-
-def list_categories(
-    previews_paths: typing.Iterable[str],
-    previews_gray_paths: typing.Optional[typing.Iterable[str]],
-    filters: typing.Optional[typing.Iterable[typing.Callable]] = None
-) -> typing.Iterable[str]:
-    categories = set()
-    for previews_path in previews_paths:
-        if not os.path.isdir(previews_path):
-            continue
-        for category in os.listdir(previews_path):
-            if not os.path.isdir(os.path.join(previews_path, category)):
-                continue
-            categories.add(category)
-
-    if previews_gray_paths is not None:
-        for previews_gray_path in previews_gray_paths:
-            if not os.path.isdir(previews_gray_path):
-                continue
-            for category in os.listdir(previews_gray_path):
-                if not os.path.isdir(os.path.join(previews_gray_path, category)):
-                    continue
-                categories.add(category)
-
-    for name in sorted(categories):
-        filtered = False
-        if filters is not None:
-            for filter_ in filters:
-                if not filter_(name):
-                    filtered = True
-                    break
-
-        if filtered:
-            continue
-
-        yield name
-
-
-PreviewFilter = typing.Callable[[str], bool]
-
-
-def expand_search_keywords(translator: typing.Dict[str, typing.Iterable[str]], keywords: typing.Iterable[str]) -> typing.Set[str]:
-    ret = set()
-    for keyword in keywords:
-        keyword = keyword.lower()
-        ret.add(keyword)
-        ret.update(translator.get(keyword, []))
-    return ret
-
-
-def search_for_keywords(expanded_keywords: typing.Iterable[str], text: str) -> bool:
-    """Returns true if at least one of the keywords is contained within given text
-
-    Matching is case-insensitive.
-    """
-    text_lower = text.lower()
-    for keyword in expanded_keywords:
-        if keyword.lower() in text_lower:
-            return True
-
-    return False
-
-
-def search_by_keywords_filter(preview_basename: str, search_keywords: typing.Iterable[str], name_formatter: typing.Callable[[str], str]) -> bool:
-    if not search_keywords:
-        return True
-
-    nice_name = name_formatter(preview_basename)
-    if not search_for_keywords(search_keywords, nice_name):
-        # skipping because it was filtered out
-        return False
-
-    return True
-
-
-def enum_property_set(datablock: bpy.types.bpy_struct, prop_name: str, value: int):
-    """Default set function for enum properties"""
-    datablock[prop_name] = value
-
-
-def enum_property_get(
-    datablock: bpy.types.bpy_struct,
-    prop_name: str,
-    items: typing.Iterable[bpy.types.EnumPropertyItem]
-) -> int:
-    """Default get function for enum properties that ensures validity of returned item"""
-    assert len(items) > 0  # There should be one preview for not found state
-    current_item = datablock.get(prop_name, 0)
-    if current_item not in {i[4] for i in items}:
-        return items[0][4]
-
-    return current_item
-
-
-def list_asset_previews(
-        previews_paths: typing.Iterable[str],
-        previews_gray_paths: typing.Optional[typing.Iterable[str]],
-        category: str,
-        name_formatter: typing.Callable[[str], str],
-        filters: typing.Iterable[PreviewFilter]):
-    if not hasattr(list_asset_previews, "pcoll"):
-        list_asset_previews.pcoll = bpy.utils.previews.new()
-
-    ret = {"enum_items": [], "pcoll": list_asset_previews.pcoll}
-
-    def process_preview_file(previews_path: str, category: str, preview_filename: str, i: int, i_base: int = 0) -> None:
-        if not preview_filename.endswith((".jpg", ".png")):
-            return
-
-        full_path = os.path.join(previews_path, category, preview_filename)
-        if not os.path.exists(full_path):
-            logger.warning(f"{full_path} not found! Skipping this asset in the browser!")
-            return
-
-        preview_basename, _ = os.path.splitext(preview_filename)
-
-        filtered = False
-        for filter_ in filters:
-            if not filter_(preview_basename):
-                # filtered out
-                filtered = True
-                break
-
-        if filtered:
-            return
-
-        if preview_basename in ret["pcoll"]:
-            image = ret["pcoll"][preview_basename]
-        else:
-            image = ret["pcoll"].load(preview_basename, full_path, 'IMAGE')
-
-        nice_name = name_formatter(preview_basename)
-        ret["enum_items"].append((preview_basename, nice_name,
-                                  preview_basename, image.icon_id, i + i_base))
-
-    previews_path_found = False
-    i_base = 0
-    for previews_path in previews_paths:
-        path = os.path.join(previews_path, category)
-        if not os.path.isdir(path):
-            continue
-        previews_path_found = True
-
-        # TODO: fix sorting here
-        preview_filenames = sorted(os.listdir(path))
-        preview_count = 0
-        for i, preview_filename in enumerate(preview_filenames):
-            process_preview_file(previews_path, category, preview_filename, i, i_base)
-            preview_count += 1
-        i_base += preview_count
-
-    if not previews_path_found:
-        logger.warning(
-            f"Category {category} not found in any of the preview paths: {previews_paths}!")
-
-    if previews_gray_paths is not None:
-        for previews_gray_path in previews_gray_paths:
-            path_gray = os.path.join(
-                previews_gray_path, category)
-            if not os.path.isdir(path_gray):
-                continue
-
-            gray_preview_filenames = sorted(os.listdir(path_gray))
-            preview_count = 0
-            for i, preview_filename in enumerate(gray_preview_filenames):
-                process_preview_file(previews_gray_path, category, preview_filename, i, i_base)
-                preview_count += 1
-            i_base += preview_count
-
-    # Add at least one item, so we can represent that nothing was found
-    if len(ret["enum_items"]) == 0:
-        ret["enum_items"].append((PREVIEW_NOT_FOUND, "Nothing found", "Nothing Found", 'X', 0))
-    return ret
 
 
 def get_all_object_ancestors(obj: bpy.types.Object) -> typing.Iterable[bpy.types.Object]:
@@ -433,80 +197,20 @@ def get_polygoniq_objects(
             yield obj
 
 
-def get_addon_install_path(addon_name: str) -> typing.Optional[str]:
-    addon = bpy.context.preferences.addons.get(addon_name, None)
-    if addon is None:
-        return None
-
-    return getattr(addon.preferences, "install_path", None)
-
-
-def get_addons_install_paths(addon_names: typing.Iterable[str], short_names: bool = False) -> typing.Dict[str, str]:
-    install_paths = {}
-    module_names = {module_name for asset_addon in ASSET_ADDON_MODULE_NAMES.values()
-                    for module_name in asset_addon}
-    for addon_name in addon_names:
-        install_path = get_addon_install_path(addon_name)
-        if install_path is None:
-            continue
-        if short_names:
-            if addon_name in module_names:
-                short_name, _ = addon_name.split("_", 1)
-            else:
-                # remove _addon and _addon_only even from asset packs
-                if addon_name.endswith("_addon"):
-                    short_name = addon_name[:-len("_addon")]
-                elif addon_name.endswith("_addon_only"):
-                    short_name = addon_name[:-len("_addon_only")]
-                else:
-                    short_name = addon_name
-            install_paths[short_name] = install_path
-        else:
-            install_paths[addon_name] = install_path
-
-    return install_paths
-
-
-def get_installed_polygoniq_asset_addons(include_asset_packs: bool = False) -> typing.Dict[str, bpy.types.Addon]:
-    polygoniq_addons = {}
-    # We keep track of basenames to detect multiple installations of addons
-    found_module_names = set()
-    module_names = {module_name for asset_addon in ASSET_ADDON_MODULE_NAMES.values()
-                    for module_name in asset_addon}
-
-    # let's find asset addons first
-    for name, addon in bpy.context.preferences.addons.items():
-        if name in module_names:
-            found_module_names.add(name)
-            polygoniq_addons[name] = addon
-
-    module_prefixes = tuple(
-        f"{asset_addon.name}_" for asset_addon in ASSET_ADDON_MODULE_NAMES.keys())
-    if include_asset_packs:
-        for name, addon in bpy.context.preferences.addons.items():
-            if name in found_module_names:
-                continue
-            if name.startswith(module_prefixes):
-                found_module_names.add(name)
-                polygoniq_addons[name] = addon
-
-    return polygoniq_addons
-
-
-class TiqAssetPart(enum.Enum):
+class TraffiqAssetPart(enum.Enum):
     Body = 'Body'
     Lights = 'Lights'
     Wheel = 'Wheel'
     Brake = 'Brake'
 
 
-def is_traffiq_asset_part(obj: bpy.types.Object, part: TiqAssetPart) -> bool:
+def is_traffiq_asset_part(obj: bpy.types.Object, part: TraffiqAssetPart) -> bool:
     addon_name = obj.get("polygoniq_addon", "")
     if addon_name != "traffiq":
         return False
 
     obj_name = utils_bpy.remove_object_duplicate_suffix(obj.name)
-    if part in {TiqAssetPart.Body, TiqAssetPart.Lights}:
+    if part in {TraffiqAssetPart.Body, TraffiqAssetPart.Lights}:
         splitted_name = obj_name.rsplit("_", 1)
         if len(splitted_name) != 2:
             return False
@@ -516,7 +220,7 @@ def is_traffiq_asset_part(obj: bpy.types.Object, part: TiqAssetPart) -> bool:
             return False
         return True
 
-    elif part in {TiqAssetPart.Wheel, TiqAssetPart.Brake}:
+    elif part in {TraffiqAssetPart.Wheel, TraffiqAssetPart.Brake}:
         splitted_name = obj_name.rsplit("_", 3)
         if len(splitted_name) != 4:
             return False
@@ -603,23 +307,23 @@ def decompose_traffiq_vehicle(obj: bpy.types.Object) -> DecomposedCarType:
 
     hierarchy_objects = get_entire_object_hierarchy(obj)
     for hierarchy_obj in hierarchy_objects:
-        if is_traffiq_asset_part(hierarchy_obj, TiqAssetPart.Body):
+        if is_traffiq_asset_part(hierarchy_obj, TraffiqAssetPart.Body):
             # there should be only one body
             assert body is None
             body = hierarchy_obj
-        elif is_traffiq_asset_part(hierarchy_obj, TiqAssetPart.Lights):
+        elif is_traffiq_asset_part(hierarchy_obj, TraffiqAssetPart.Lights):
             # there should be only one lights
             assert lights is None
             lights = hierarchy_obj
-        elif is_traffiq_asset_part(hierarchy_obj, TiqAssetPart.Wheel):
+        elif is_traffiq_asset_part(hierarchy_obj, TraffiqAssetPart.Wheel):
             wheels.append(hierarchy_obj)
-        elif is_traffiq_asset_part(hierarchy_obj, TiqAssetPart.Brake):
+        elif is_traffiq_asset_part(hierarchy_obj, TraffiqAssetPart.Brake):
             brakes.append(hierarchy_obj)
 
     return root_object, body, lights, wheels, brakes
 
 
-def find_traffiq_asset_parts(obj: bpy.types.Object, part: TiqAssetPart) -> typing.Iterable[bpy.types.Object]:
+def find_traffiq_asset_parts(obj: bpy.types.Object, part: TraffiqAssetPart) -> typing.Iterable[bpy.types.Object]:
     """Find all asset parts of a specific type."""
 
     for hierarchy_obj in get_entire_object_hierarchy(obj):
@@ -763,11 +467,15 @@ def generic_link_asset(
     return root_empty
 
 
+ParticleSystemData = typing.Tuple[
+    bpy.types.Modifier, bpy.types.ParticleSystem, bpy.types.ParticleSettings]
+
+
 def load_pps(
     container_object: bpy.types.Object,
     particle_system_blend: str,
     include_base_material: bool = False
-) -> typing.List[typing.Tuple[bpy.types.Modifier, bpy.types.ParticleSystem, bpy.types.ParticleSettings]]:
+) -> typing.List[ParticleSystemData]:
     if not os.path.isfile(particle_system_blend):
         return []
 
@@ -841,7 +549,7 @@ def generic_spawn_pps(
     asset_name: str,
     blend_path: str,
     target_object: bpy.types.Object
-) -> typing.Optional[typing.List[typing.Tuple[bpy.types.Modifier, bpy.types.ParticleSystem, bpy.types.ParticleSettings]]]:
+) -> typing.Optional[typing.List[ParticleSystemData]]:
     particle_system_data = load_pps(
         target_object,
         blend_path,
@@ -880,9 +588,9 @@ def generic_spawn_pps(
 
         # TODO: Let people link collection
         # if self.link_instance_collection:
-        #     biq_coll = polib.asset_addon_bpy.collection_get(
+        #     biq_coll = polib.asset_pack_bpy.collection_get(
         #         context, asset_helpers.PARTICLE_SYSTEMS_CATEGORY,
-        #         parent=polib.asset_addon_bpy.collection_get(
+        #         parent=polib.asset_pack_bpy.collection_get(
         #             context, asset_helpers.BIQ_COLLECTION_NAME)
         #     )
         #     biq_coll.children.link(instance_collection)
@@ -894,11 +602,10 @@ def generic_spawn_pps(
     return particle_system_data
 
 
-def make_selection_linked(context: bpy.types.Context) -> typing.List[bpy.types.Object]:
-    addon_install_paths = get_addons_install_paths(
-        get_installed_polygoniq_asset_addons(include_asset_packs=True).keys(),
-        short_names=True
-    )
+def make_selection_linked(
+    context: bpy.types.Context,
+    install_paths_by_features: typing.Dict[str, typing.List[str]]
+) -> typing.List[bpy.types.Object]:
     previous_selection = [obj.name for obj in context.selected_objects]
     previous_active_object_name = context.active_object.name if context.active_object else None
 
@@ -917,21 +624,37 @@ def make_selection_linked(context: bpy.types.Context) -> typing.List[bpy.types.O
         if path_property.startswith("blends/particles"):
             continue
 
-        addon_property = obj.get("polygoniq_addon", None)
-        if addon_property is None:
+        # Asset Addons are now Asset Packs
+        # "polygoniq_addon" refers to the Asset Pack's engon feature
+        # TODO: Rework this after mapr_ids get merged
+        feature_property = obj.get("polygoniq_addon", None)
+        if feature_property is None:
             continue
 
-        install_path = addon_install_paths.get(addon_property, None)
-        if install_path is None:
+        install_paths_by_feature = install_paths_by_features.get(feature_property, None)
+        if install_paths_by_feature is None:
             logger.warning(
-                f"Obj {obj.name} contains property: {addon_property} but addon is not installed!")
+                f"Obj {obj.name} contains property: {feature_property} but the Asset Pack is not installed!")
             continue
 
-        asset_path = os.path.join(install_path, os.path.normpath(path_property))
+        asset_path: str = ""
+        asset_paths_list: typing.List[str] = []
+        for install_path in install_paths_by_feature:
+            asset_path = os.path.join(install_path, os.path.normpath(path_property))
+            asset_paths_list.append(f"'{asset_path}'")
+            if not os.path.isfile(asset_path):
+                logger.info(
+                    f"Could not find {obj.name} in {asset_path} because "
+                    f"it doesn't exist, perhaps the asset isn't in this version anymore.")
+                continue
+            if os.path.isfile(asset_path):
+                logger.info(f"Found {obj.name} in {asset_path}. Proceeding to linking.")
+                break
         if not os.path.isfile(asset_path):
+            asset_paths_str = ", ".join(asset_paths_list)
             logger.warning(
-                f"Cannot link {obj.name} from {asset_path} because "
-                "it doesn't exist, perhaps the asset isn't in this version anymore.")
+                f"Cannot link {obj.name} from any of the paths: {asset_paths_str}, because "
+                f"it doesn't exist.")
             continue
 
         asset_name, _ = os.path.splitext(os.path.basename(path_property))
@@ -959,7 +682,7 @@ def make_selection_linked(context: bpy.types.Context) -> typing.List[bpy.types.O
 
         if instance_root is None:
             logger.error(f"Failed to link asset {obj} with "
-                         f"{addon_property}, instance is None")
+                         f"{feature_property}, instance is None")
             continue
 
         instance_root.matrix_world = old_model_matrix
@@ -1041,6 +764,9 @@ def make_selection_editable(context: bpy.types.Context, delete_base_empty: bool,
                 obj["copyright"] = copyright
                 obj["polygoniq_addon"] = polygoniq_addon
                 obj["polygoniq_addon_blend_path"] = polygoniq_blend_path
+                mapr_id = child.get("mapr_id", None)
+                if mapr_id is not None:
+                    obj["mapr_id"] = mapr_id
                 return
 
     def get_mesh_to_objects_map(obj: bpy.types.Object, result: typing.DefaultDict[str, typing.List[bpy.types.ID]]) -> None:
@@ -1131,6 +857,10 @@ def make_selection_editable(context: bpy.types.Context, delete_base_empty: bool,
 
         for child in obj.children:
             child.color = prev_color
+            # Create mapr_id custom property on the child if it doesn't exist already. Otherwise
+            # mapr_id would not get copied because we use only_existing=True with copy_custom_props.
+            if child.get("mapr_id", None) is None:
+                child["mapr_id"] = ""
             # Copy custom property values from each instanced obj to all children recursively
             # only if the property exists on the target object
             copy_custom_props(obj, child, only_existing=True, recursive=True)
@@ -1289,12 +1019,12 @@ def collection_get(context: bpy.types.Context, name: str, parent:
         parent.children.link(coll)
 
     if hasattr(coll, "color_tag"):  # coloring is only supported if this attribute is present
-        coll_color = ASSET_ADDON_COLLECTION_COLOR_MAP.get(name, None)
+        coll_color = ASSET_PACK_COLLECTION_COLOR_MAP.get(name, None)
         if coll_color is not None:
             coll.color_tag = coll_color
         elif parent is not None:  # color direct descendants by their parent color - e.g. botaniq/weed
             parent_name = utils_bpy.remove_object_duplicate_suffix(parent.name)
-            parent_color = ASSET_ADDON_COLLECTION_COLOR_MAP.get(parent_name, None)
+            parent_color = ASSET_PACK_COLLECTION_COLOR_MAP.get(parent_name, None)
             if parent_color is not None:
                 coll.color_tag = parent_color
     return coll
@@ -1438,4 +1168,4 @@ def generic_spawn_scene(
         data_to.scenes = data_from.scenes
 
     context.window.scene = data_to.scenes[0]
-    return existing_scene
+    return data_to.scenes[0]

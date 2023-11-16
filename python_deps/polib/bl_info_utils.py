@@ -6,8 +6,6 @@ import typing
 import zipfile
 import pathlib
 
-# TODO: This file is currently both in polib and polygoniq_internal_lib, this is due to
-# the fact, that in polib we expect bpy, but polygoniq_internal_lib can function even without bpy
 BL_INFO_REGEX = r"^bl_info[\s]*=[\s]*(\{[^\}]*\})"
 
 

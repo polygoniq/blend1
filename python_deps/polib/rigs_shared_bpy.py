@@ -5,7 +5,7 @@ import bpy
 import typing
 
 
-class TiqRigProperties:
+class TraffiqRigProperties:
     CAR_RIG = "tiq_Car_Rig"
     WHEELS_Y_ROLLING = "tiq_WheelsYRolling"
     STEERING = "tiq_SteeringRotation"
@@ -15,7 +15,7 @@ class TiqRigProperties:
 
     @classmethod
     def is_rig_property(cls, prop: str) -> bool:
-        if prop.startswith(TiqRigProperties.WHEEL_ROTATION):
+        if prop.startswith(TraffiqRigProperties.WHEEL_ROTATION):
             return True
 
         return prop in {
@@ -51,24 +51,24 @@ class RigDrivers:
         for bone in self.pose.bones.values():
             if bone.name.startswith("MCH_WheelRotation"):
                 _, _, suffix = bone.name.split("_", 2)
-                data_path = f'["{TiqRigProperties.WHEEL_ROTATION}_{suffix}"]'
+                data_path = f'["{TraffiqRigProperties.WHEEL_ROTATION}_{suffix}"]'
                 self.__create_rotation_euler_x_driver(bone, data_path)
             elif bone.name == "MCH_SteeringRotation":
                 self.__create_translation_x_driver(
-                    bone, f'["{TiqRigProperties.STEERING}"]')
+                    bone, f'["{TraffiqRigProperties.STEERING}"]')
             elif bone.name == "MCH_Axis":
                 front_constraint = bone.constraints.get("Rotation from MCH_Axis_F", None)
                 if front_constraint is not None:
                     self.__create_constraint_influence_driver(
                         front_constraint,
-                        f'["{TiqRigProperties.SUSPENSION_ROLLING_FACTOR}"]',
+                        f'["{TraffiqRigProperties.SUSPENSION_ROLLING_FACTOR}"]',
                         1.0
                     )
                 rear_constraint = bone.constraints.get("Rotation from MCH_Axis_B", None)
                 if rear_constraint is not None:
                     self.__create_constraint_influence_driver(
                         rear_constraint,
-                        f'["{TiqRigProperties.SUSPENSION_ROLLING_FACTOR}"]',
+                        f'["{TraffiqRigProperties.SUSPENSION_ROLLING_FACTOR}"]',
                         0.5
                     )
 
@@ -136,5 +136,5 @@ def is_object_rigged(obj: bpy.types.Object) -> bool:
     if obj.data is None:
         return False
 
-    return TiqRigProperties.CAR_RIG in obj.data \
-        and obj.data[TiqRigProperties.CAR_RIG] == 1
+    return TraffiqRigProperties.CAR_RIG in obj.data \
+        and obj.data[TraffiqRigProperties.CAR_RIG] == 1

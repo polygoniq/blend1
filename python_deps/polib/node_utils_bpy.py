@@ -4,11 +4,11 @@ import bpy
 import typing
 import itertools
 
-if "utils" not in locals():
+if "utils_bpy" not in locals():
     from . import utils_bpy
 else:
     import importlib
-    utils = importlib.reload(utils)
+    utils_bpy = importlib.reload(utils_bpy)
 
 
 def find_nodes_in_tree(

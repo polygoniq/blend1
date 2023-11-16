@@ -5,23 +5,25 @@ import logging
 logger = logging.getLogger(f"polygoniq.{__name__}")
 
 
-if "asset_addon_bpy" not in locals():
-    from . import asset_addon
+if "asset_pack_bpy" not in locals():
+    from . import asset_pack
+    from . import bl_info_utils
 
     # polib is used outside of Blender as well, we have to support
     # a usecase where bpy is not available and can't be imported
     try:
         import bpy
-        from . import asset_addon_bpy
-        from . import bl_info_utils
+        from . import asset_pack_bpy
+        from . import color_utils
+        from . import geonodes_mod_utils_bpy
         from . import installation_utils_bpy
         from . import linalg_bpy
         from . import log_helpers_bpy
         from . import material_addon_bpy
-        from . import megaddon_entry_bpy
+        from . import material_utils_bpy
         from . import module_install_utils_bpy
-        from . import geonodes_mod_utils_bpy
         from . import node_utils_bpy
+        from . import remove_duplicates_bpy
         from . import render_bpy
         from . import rigs_shared_bpy
         from . import snap_to_ground_bpy
@@ -68,15 +70,17 @@ if "asset_addon_bpy" not in locals():
 
         import types
 
-        asset_addon_bpy = types.ModuleType("asset_addon_bpy")
+        asset_pack_bpy = types.ModuleType("asset_pack_bpy")
+        color_utils = types.ModuleType("color_utils")
+        geonodes_mod_utils_bpy = types.ModuleType("geonodes_mod_utils_bpy")
         installation_utils_bpy = types.ModuleType("installation_utils_bpy")
         linalg_bpy = types.ModuleType("linalg_bpy")
         log_helpers_bpy = types.ModuleType("log_helpers_bpy")
         material_addon_bpy = types.ModuleType("material_addon_bpy")
-        megaddon_entry_bpy = types.ModuleType("megaddon_entry_bpy")
+        material_utils_bpy = types.ModuleType("material_utils_bpy")
         module_install_utils_bpy = types.ModuleType("module_install_utils_bpy")
-        geonodes_mod_utils_bpy = types.ModuleType("geonodes_mod_utils_bpy")
         node_utils_bpy = types.ModuleType("node_utils_bpy")
+        remove_duplicates_bpy = types.ModuleType("remove_duplicates_bpy")
         render_bpy = types.ModuleType("render_bpy")
         rigs_shared_bpy = types.ModuleType("rigs_shared_bpy")
         snap_to_ground_bpy = types.ModuleType("snap_to_ground_bpy")
@@ -89,17 +93,19 @@ if "asset_addon_bpy" not in locals():
 else:
     import importlib
     try:
-        asset_addon_bpy = importlib.reload(asset_addon_bpy)
-        asset_addon = importlib.reload(asset_addon)
+        asset_pack = importlib.reload(asset_pack)
+        asset_pack_bpy = importlib.reload(asset_pack_bpy)
+        color_utils = importlib.reload(color_utils)
         bl_info_utils = importlib.reload(bl_info_utils)
+        geonodes_mod_utils_bpy = importlib.reload(geonodes_mod_utils_bpy)
         installation_utils_bpy = importlib.reload(installation_utils_bpy)
         linalg_bpy = importlib.reload(linalg_bpy)
         log_helpers_bpy = importlib.reload(log_helpers_bpy)
         material_addon_bpy = importlib.reload(material_addon_bpy)
-        megaddon_entry_bpy = importlib.reload(megaddon_entry_bpy)
+        material_utils_bpy = importlib.reload(material_utils_bpy)
         module_install_utils_bpy = importlib.reload(module_install_utils_bpy)
-        geonodes_mod_utils_bpy = importlib.reload(geonodes_mod_utils_bpy)
         node_utils_bpy = importlib.reload(node_utils_bpy)
+        remove_duplicates_bpy = importlib.reload(remove_duplicates_bpy)
         render_bpy = importlib.reload(render_bpy)
         rigs_shared_bpy = importlib.reload(rigs_shared_bpy)
         snap_to_ground_bpy = importlib.reload(snap_to_ground_bpy)
@@ -120,19 +126,20 @@ bl_info = {
 
 
 __all__ = [
-    "asset_addon_bpy",
-    "asset_addon",
-    # asset_browser_indexer_bpy intentionally missing because it's an executable, not to be imported
+    "asset_pack_bpy",
+    "asset_pack",
+    "color_utils",
     "bl_info_utils",
+    "geonodes_mod_utils_bpy",
     "get_telemetry",
     "installation_utils_bpy",
     "linalg_bpy",
     "log_helpers_bpy",
     "material_addon_bpy",
-    "megaddon_entry_bpy",
+    "material_utils_bpy",
     "module_install_utils_bpy",
-    "geonodes_mod_utils_bpy",
     "node_utils_bpy",
+    "remove_duplicates_bpy",
     "render_bpy",
     "rigs_shared_bpy",
     "snap_to_ground_bpy",

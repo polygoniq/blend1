@@ -22,22 +22,26 @@ def autodetect_install_path(product: str, init_path: str, install_path_checker: 
     try:
         vscode_product_path = os.path.expanduser(
             os.path.join("~", "polygoniq", "blender_addons", product))
-        if os.path.commonpath([os.path.abspath(os.path.realpath(init_path)), vscode_product_path]) == vscode_product_path:
-            staging_path_base = os.path.expanduser(
-                os.path.join("~", "polygoniq", "bazel-bin", "blender_addons", product)
-            )
-            # Possible sources of built assets from bazel
-            FLIP_OF_THE_COIN = [
-                os.path.join(staging_path_base, f"{product}_staging"),
-                os.path.join(staging_path_base, f"data_final")
-            ]
-            for flip in FLIP_OF_THE_COIN:
-                if os.path.isdir(flip):
-                    print(
-                        f"Detected blender_vscode development environment. Going to use {flip} as "
-                        f"the install path for {product}."
-                    )
-                    return flip
+        try:
+            if os.path.commonpath([os.path.abspath(os.path.realpath(init_path)), vscode_product_path]) == vscode_product_path:
+                staging_path_base = os.path.expanduser(
+                    os.path.join("~", "polygoniq", "bazel-bin", "blender_addons", product)
+                )
+                # Possible sources of built assets from bazel
+                FLIP_OF_THE_COIN = [
+                    os.path.join(staging_path_base, f"{product}_staging"),
+                    os.path.join(staging_path_base, f"data_final")
+                ]
+                for flip in FLIP_OF_THE_COIN:
+                    if os.path.isdir(flip):
+                        print(
+                            f"Detected blender_vscode development environment. Going to use {flip} as "
+                            f"the install path for {product}."
+                        )
+                        return flip
+        except:
+            # not on the same drive
+            pass
 
     except ValueError:  # Paths don't have the same drive
         pass
@@ -125,46 +129,9 @@ def generate_unique_name(old_name: str, container: typing.Iterable[typing.Any]) 
     return new_name
 
 
-DuplicateFilter = typing.Callable[[bpy.types.ID], bool]
-
-
-def is_duplicate_filtered(data: bpy.types.ID, filters: typing.Iterable[DuplicateFilter]) -> bool:
-    filtered = False
-    for filter_ in filters:
-        if not filter_(data):
-            filtered = True
-            break
-
-    return filtered
-
-
-def remove_duplicate_datablocks(datablocks: bpy.types.bpy_prop_collection, filters: typing.Optional[typing.Iterable[DuplicateFilter]] = None) -> typing.List[str]:
-    to_remove = []
-
-    for datablock in datablocks:
-        if filters is not None and is_duplicate_filtered(datablock, filters):
-            continue
-
-        # ok, so it's a duplicate, let's figure out the "proper" datablock
-        orig_datablock_name = remove_object_duplicate_suffix(datablock.name)
-        if orig_datablock_name in datablocks:
-            orig_node_group = datablocks[orig_datablock_name]
-            datablock.user_remap(orig_node_group)
-            if datablock.users == 0:
-                to_remove.append(datablock)
-        else:
-            # the original datablock is gone, we should rename this one
-            datablock.name = orig_datablock_name
-    ret = []
-    for datablock in to_remove:
-        ret.append(datablock.name)
-        datablocks.remove(datablock)
-    return ret
-
-
 def convert_size(size_bytes: int) -> str:
     if size_bytes == 0:
-        return "0B"
+        return "0 B"
     size_name = ("B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB")
     index = int(math.floor(math.log(size_bytes, 1024)))
     size = round(size_bytes / math.pow(1024, index), 2)
@@ -233,80 +200,6 @@ def xdg_open_file(path):
         subprocess.call(["xdg-open", path])
 
 
-def integrate_addon_to_asset_browser(
-    context: bpy.types.Context,
-    addon_name: str,
-    vendor: str,
-    addon_path: str,
-    paths: typing.Iterable[typing.Tuple[str, str]]
-) -> str:
-    if bpy.app.version < (3, 2, 0):
-        raise RuntimeError(
-            "Only Blender 3.2.0 or newer is supported for asset browser integration!")
-
-    asset_browser_indexer_bpy_path = os.path.realpath(
-        os.path.abspath(os.path.join(os.path.dirname(__file__), "asset_browser_indexer_bpy.py")))
-    if not os.path.isfile(asset_browser_indexer_bpy_path):
-        raise RuntimeError(
-            f"Cannot detect file path of the asset_browser_indexer_bpy. "
-            f"{asset_browser_indexer_bpy_path} is not a file."
-        )
-
-    # Toggle console to show users progress. It's available only on Windows
-    if sys.platform == "win32":
-        bpy.ops.wm.console_toggle()
-
-    try:
-        indexing_process = subprocess.Popen(
-            [
-                bpy.app.binary_path,
-                "-b",
-                "-noaudio",
-                "--factory-startup",
-                # by default blender will exit with 0 even in a case of uncaught exception
-                # or syntax error! if we set this we get more safety with louder failures
-                "--python-exit-code",
-                "1",
-                "--python",
-                asset_browser_indexer_bpy_path,
-                "--",
-                "--addon_name",
-                addon_name,
-                "--extra_tags",
-                f"{addon_name},{vendor}",
-            ] + list(itertools.chain.from_iterable(paths)),
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT
-        )
-
-        if hasattr(context.preferences.filepaths, "asset_libraries"):
-            # Make sure the library is registered
-            for asset_library in context.preferences.filepaths.asset_libraries:
-                if asset_library.path == addon_path:
-                    break
-            else:
-                bpy.ops.preferences.asset_library_add()
-                library = context.preferences.filepaths.asset_libraries[-1]
-                library.name = addon_name
-                library.path = addon_path
-
-        # Read from indexing process until it's running
-        for line in indexing_process.stdout:
-            logger.info(line.decode())
-
-    finally:
-        if sys.platform == "win32":
-            bpy.ops.wm.console_toggle()
-
-    if indexing_process.wait() == 0:
-        return f"{addon_name} from {vendor} has been successfully integrated into Asset Browser."
-
-    else:
-        return \
-            f"{addon_name} from {vendor} failed to integrate into Asset Browser! This is most " \
-            f"likely a bug. Please contact us about this!"
-
-
 def run_logging_subprocess(
     subprocess_args: typing.List[str],
     logger_: typing.Optional[logging.Logger] = None
@@ -341,7 +234,7 @@ def normalize_path(path: str) -> str:
 def get_bpy_filepath_relative_to_dir(input_dir: str, filepath: str, library=None) -> str:
     file_abspath = bpy.path.abspath(filepath, library=library)
     rel_path = bpy.path.relpath(file_abspath, start=input_dir)
-    return normalize_path(rel_path.strip("//"))
+    return normalize_path(rel_path.removeprefix("//"))
 
 
 def get_first_existing_ancestor_directory(file_path: str, whitelist: typing.Optional[set[str]] = None) -> typing.Optional[str]:
@@ -355,13 +248,17 @@ def get_first_existing_ancestor_directory(file_path: str, whitelist: typing.Opti
     return str(current_dir)
 
 
-def relink_datablock(library_path, datablock_type, old_datablock, new_datablock_name: str) -> bool:
+def relink_datablock(library_path: str, datablock_type: str, old_datablock: bpy.types.ID, new_datablock_name: str) -> bool:
     """Try to relink datablock from library, return True if succesfull, otherwise False."""
 
-    with bpy.data.libraries.load(library_path, link=True) as (_, data_to):
-        setattr(data_to, datablock_type, [new_datablock_name])
+    with bpy.data.libraries.load(library_path, link=True) as (data_from, data_to):
+        if [new_datablock_name in getattr(data_from, datablock_type)]:
+            setattr(data_to, datablock_type, [new_datablock_name])
+        else:
+            return False
 
-    new_datablock = bpy.data.node_groups.get(new_datablock_name, None)
+    prop_coll = getattr(bpy.data, datablock_type)
+    new_datablock = prop_coll.get(new_datablock_name, None)
     if new_datablock is not None:
         old_datablock.user_remap(new_datablock)
         return True

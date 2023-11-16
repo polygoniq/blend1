@@ -16,8 +16,14 @@ logger = logging.getLogger(f"polygoniq.{__name__}")
 
 
 if not bpy.app.background:
-    SHADER_LINE_BUILTIN = gpu.shader.from_builtin('3D_POLYLINE_UNIFORM_COLOR')
-    SHADER_2D_UNIFORM_COLOR_BUILTIN = gpu.shader.from_builtin('2D_UNIFORM_COLOR')
+    # Blender 4.0 dropped the 3D_ and 2D_ prefixes from the shader names
+    SHADER_LINE_BUILTIN = \
+        gpu.shader.from_builtin('POLYLINE_UNIFORM_COLOR') if bpy.app.version >= (4, 0, 0) else \
+        gpu.shader.from_builtin('3D_POLYLINE_UNIFORM_COLOR')
+
+    SHADER_2D_UNIFORM_COLOR_BUILTIN = \
+        gpu.shader.from_builtin('UNIFORM_COLOR') if bpy.app.version >= (4, 0, 0) else \
+        gpu.shader.from_builtin('2D_UNIFORM_COLOR')
 else:
     logger.info(f"'{__name__}' module is not available in background mode!")
 
@@ -84,7 +90,10 @@ class TextStyle:
 
 def text(pos: mathutils.Vector, string: str, style: TextStyle) -> None:
     blf.position(style.font_id, pos[0], pos[1], 0)
-    blf.size(style.font_id, style.font_size, style.dpi)
+    if bpy.app.version >= (4, 0, 0):  # dpi argument has been dropped in Blender 4.0
+        blf.size(style.font_id, style.font_size)
+    else:
+        blf.size(style.font_id, style.font_size, style.dpi)
     blf.color(style.font_id, *style.color)
     blf.draw(style.font_id, str(string))
 

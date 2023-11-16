@@ -11,7 +11,7 @@ def get_addon_version_in_blender(full_name: str) -> typing.Optional[typing.Itera
     """Retrieves the version of given addon by full name
 
     The given name of the addon is the actual full / implementation name.
-    For example "botaniq_lite" or "traffiq_addon_only".
+    For example "botaniq_lite" or "traffiq_starter".
     """
 
     for module in addon_utils.modules():

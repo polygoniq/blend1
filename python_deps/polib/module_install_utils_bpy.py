@@ -35,12 +35,12 @@ class ModuleProvider:
     all addons using ModuleProvider should install their dependencies to the same place.
     Otherwise they could install potentially incompatible modules.
 
-    TODO: Adjust this after transition to megaddon
+    TODO: Adjust this after transition to engon
     Currently 'install_path' is stored in preferences in each addon using ModuleProvider and nothing
     enforces they store the same path. This will be inherently resolved after transition to one
-    common addon - megaddon which would define only one 'install_path' property in preferences.
+    common addon - engon which would define only one 'install_path' property in preferences.
     It shouldn't be problem till that as we won't release multiple addons that needs additional
-    modules before full transition to megaddon.
+    modules before full transition to engon.
     """
 
     def __init__(self) -> None:

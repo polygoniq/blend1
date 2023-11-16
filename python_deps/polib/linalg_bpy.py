@@ -135,6 +135,10 @@ def fit_plane_to_points(points):
     return (plane_normal, offset, centroid)
 
 
+def is_obj_flat(obj: bpy.types.Object) -> bool:
+    return any(math.isclose(d, 0.0) for d in obj.dimensions)
+
+
 def mean_position(vs: typing.Iterable[mathutils.Vector]) -> mathutils.Vector:
     sum_v = mathutils.Vector()
     n = 0
