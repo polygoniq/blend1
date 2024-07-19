@@ -1,26 +1,25 @@
 # copyright (c) 2018- polygoniq xyz s.r.o.
 
 import bpy
+import numpy
 import typing
 from . import node_utils_bpy
 
 
-def can_have_materials_assigned(obj: bpy.types.Object) -> bool:
-    """Checks whether given object can have materials assigned
+def safe_get_active_material(
+    obj: typing.Optional[bpy.types.Object],
+) -> typing.Optional[bpy.types.Material]:
+    """Returns active material of object. Returns None if object is None"""
+    if obj is None:
+        return None
 
-    We check for multiple things: type of the object and the availability of material_slots.
-    """
-
-    # In theory checking the availability of material_slots is not necessary, all these
-    # object types should have it. We check for it to avoid exceptions and errors in our code.
-    return obj.type in {'MESH', 'CURVE', 'SURFACE', 'META', 'FONT', 'GPENCIL', 'VOLUME'} \
-        and hasattr(obj, "material_slots")
+    return obj.active_material
 
 
 def is_material_slot_used_on_geometry(
     obj: bpy.types.Object,
     material_index: int,
-    used_indices: typing.Optional[typing.FrozenSet[int]] = None
+    used_indices: typing.Optional[typing.FrozenSet[int]] = None,
 ) -> bool:
     """Returns whether a material slot on given index contains a material that is used
     by a given Object's geometry.
@@ -46,7 +45,7 @@ def is_material_slot_used_on_geometry(
 def is_material_used_on_geonodes(
     obj: bpy.types.Object,
     material_index: int,
-    geonode_materials: typing.Optional[typing.FrozenSet[bpy.types.Material]] = None
+    geonode_materials: typing.Optional[typing.FrozenSet[bpy.types.Material]] = None,
 ) -> bool:
     """Returns whether a material slot on given index contains a material that is used
     by a given Object's geometry nodes modifiers.
@@ -61,7 +60,7 @@ def is_material_used_on_geonodes(
     if slot.material is None:
         return False
 
-    if (geonode_materials is None):
+    if geonode_materials is None:
         geonode_materials = get_materials_used_by_geonodes(obj)
 
     obj_mat_name = slot.material.name
@@ -74,11 +73,10 @@ def get_material_slots_used_by_mesh(obj: bpy.types.Object) -> typing.FrozenSet[i
     if not hasattr(obj.data, "polygons"):
         return frozenset()
 
-    seen_indices = set()
-    for face in obj.data.polygons:
-        seen_indices.add(face.material_index)
-
-    return frozenset(seen_indices)
+    material_indices = numpy.zeros(len(obj.data.polygons), dtype=numpy.int32)
+    obj.data.polygons.foreach_get('material_index', material_indices)
+    unique_indices = numpy.unique(material_indices)
+    return frozenset(unique_indices)
 
 
 def get_material_slots_used_by_spline(obj: bpy.types.Object) -> typing.FrozenSet[int]:
@@ -117,18 +115,18 @@ def get_materials_used_by_geonodes(obj: bpy.types.Object) -> typing.FrozenSet[bp
             continue
 
         # Scan modifier inputs
-        for input_ in mod.node_group.inputs:
-            if input_.type == 'MATERIAL':
+        for input_ in node_utils_bpy.get_node_tree_inputs_map(mod.node_group).values():
+            if node_utils_bpy.get_socket_type(input_) == 'NodeSocketMaterial':
                 mat = mod[input_.identifier]
                 if mat is not None:
                     used_materials.add(mat)
 
         for node in node_utils_bpy.find_nodes_in_tree(mod.node_group):
             for node_input in filter(lambda i: i.type == 'MATERIAL', node.inputs):
-                if (node_input.default_value is not None):
+                if node_input.default_value is not None:
                     used_materials.add(node_input.default_value)
-            if (hasattr(node, 'material')):
-                if (node.material is not None):
+            if hasattr(node, 'material'):
+                if node.material is not None:
                     used_materials.add(node.material)
 
     return frozenset(used_materials)

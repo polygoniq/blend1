@@ -2,6 +2,7 @@
 # copyright (c) 2018- polygoniq xyz s.r.o.
 
 import logging
+
 logger = logging.getLogger(f"polygoniq.{__name__}")
 
 
@@ -19,15 +20,16 @@ if "asset_pack_bpy" not in locals():
         from . import installation_utils_bpy
         from . import linalg_bpy
         from . import log_helpers_bpy
-        from . import material_addon_bpy
         from . import material_utils_bpy
         from . import module_install_utils_bpy
         from . import node_utils_bpy
+        from . import preview_manager_bpy
         from . import remove_duplicates_bpy
         from . import render_bpy
         from . import rigs_shared_bpy
         from . import snap_to_ground_bpy
         from . import spline_utils_bpy
+        from . import split_file_reader
         from . import telemetry_module_bpy as telemetry_native_module
         from . import ui_bpy
         from . import utils_bpy
@@ -39,21 +41,22 @@ if "asset_pack_bpy" not in locals():
             global telemetry_module_bpy
 
             if not hasattr(bpy, "polygoniq_global"):
-                bpy.polygoniq_global = {
-                    "telemetry": {},  # deprecated!
-                    "telemetry_module_bpy": {}
-                }
+                bpy.polygoniq_global = {"telemetry": {}, "telemetry_module_bpy": {}}  # deprecated!
 
-            if not hasattr(bpy.polygoniq_global, "telemetry_module_bpy"):
+            if "telemetry_module_bpy" not in bpy.polygoniq_global:
                 bpy.polygoniq_global["telemetry_module_bpy"] = {}
 
             # another polygoniq addon might have already initialized telemetry!
             # we want to use just one instance unless it's a different API version
             if telemetry_native_module.API_VERSION in bpy.polygoniq_global["telemetry_module_bpy"]:
-                telemetry_module_bpy = bpy.polygoniq_global["telemetry_module_bpy"][telemetry_native_module.API_VERSION]
+                telemetry_module_bpy = bpy.polygoniq_global["telemetry_module_bpy"][
+                    telemetry_native_module.API_VERSION
+                ]
             else:
                 telemetry_module_bpy = telemetry_native_module
-                bpy.polygoniq_global["telemetry_module_bpy"][telemetry_native_module.API_VERSION] = telemetry_module_bpy
+                bpy.polygoniq_global["telemetry_module_bpy"][
+                    telemetry_native_module.API_VERSION
+                ] = telemetry_module_bpy
                 telemetry_module_bpy.bootstrap_telemetry()
 
         init_polygoniq_global()
@@ -66,7 +69,8 @@ if "asset_pack_bpy" not in locals():
             raise
 
         logger.info(
-            f"polib has been initialized without bpy, all polib modules that use bpy are imported as dummies only.")
+            f"polib has been initialized without bpy, all polib modules that use bpy are imported as dummies only."
+        )
 
         import types
 
@@ -76,15 +80,16 @@ if "asset_pack_bpy" not in locals():
         installation_utils_bpy = types.ModuleType("installation_utils_bpy")
         linalg_bpy = types.ModuleType("linalg_bpy")
         log_helpers_bpy = types.ModuleType("log_helpers_bpy")
-        material_addon_bpy = types.ModuleType("material_addon_bpy")
         material_utils_bpy = types.ModuleType("material_utils_bpy")
         module_install_utils_bpy = types.ModuleType("module_install_utils_bpy")
         node_utils_bpy = types.ModuleType("node_utils_bpy")
+        preview_manager_bpy = types.ModuleType("preview_manager_bpy")
         remove_duplicates_bpy = types.ModuleType("remove_duplicates_bpy")
         render_bpy = types.ModuleType("render_bpy")
         rigs_shared_bpy = types.ModuleType("rigs_shared_bpy")
         snap_to_ground_bpy = types.ModuleType("snap_to_ground_bpy")
         spline_utils_bpy = types.ModuleType("spline_utils_bpy")
+        split_file_reader = types.ModuleType("split_file_reader")
         telemetry_native_module = types.ModuleType("telemetry_native_module")
         ui_bpy = types.ModuleType("ui_bpy")
         utils_bpy = types.ModuleType("utils_bpy")
@@ -92,6 +97,7 @@ if "asset_pack_bpy" not in locals():
 
 else:
     import importlib
+
     try:
         asset_pack = importlib.reload(asset_pack)
         asset_pack_bpy = importlib.reload(asset_pack_bpy)
@@ -101,7 +107,6 @@ else:
         installation_utils_bpy = importlib.reload(installation_utils_bpy)
         linalg_bpy = importlib.reload(linalg_bpy)
         log_helpers_bpy = importlib.reload(log_helpers_bpy)
-        material_addon_bpy = importlib.reload(material_addon_bpy)
         material_utils_bpy = importlib.reload(material_utils_bpy)
         module_install_utils_bpy = importlib.reload(module_install_utils_bpy)
         node_utils_bpy = importlib.reload(node_utils_bpy)
@@ -110,6 +115,7 @@ else:
         rigs_shared_bpy = importlib.reload(rigs_shared_bpy)
         snap_to_ground_bpy = importlib.reload(snap_to_ground_bpy)
         spline_utils_bpy = importlib.reload(spline_utils_bpy)
+        split_file_reader = importlib.reload(split_file_reader)
         telemetry_native_module = importlib.reload(telemetry_native_module)
         ui_bpy = importlib.reload(ui_bpy)
         utils_bpy = importlib.reload(utils_bpy)
@@ -125,6 +131,14 @@ bl_info = {
 }
 
 
+def register():  # stub just to avoid an AttributeError when using blender_vscode extension
+    pass
+
+
+def unregister():  # stub just to avoid an AttributeError when using blender_vscode extension
+    pass
+
+
 __all__ = [
     "asset_pack_bpy",
     "asset_pack",
@@ -135,16 +149,17 @@ __all__ = [
     "installation_utils_bpy",
     "linalg_bpy",
     "log_helpers_bpy",
-    "material_addon_bpy",
     "material_utils_bpy",
     "module_install_utils_bpy",
     "node_utils_bpy",
+    "preview_manager_bpy",
     "remove_duplicates_bpy",
     "render_bpy",
     "rigs_shared_bpy",
     "snap_to_ground_bpy",
     "spline_utils_bpy",
+    "split_file_reader",
     # telemetry_module_bpy intentionally missing, you should interact with it via get_telemetry
     "ui_bpy",
-    "utils_bpy"
+    "utils_bpy",
 ]

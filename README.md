@@ -1,31 +1,27 @@
-<h1 align="center">
-  <a href="https://github.com/polygoniq/blend1">
-    <img src="docs/images/logo.svg" alt="Logo" width="100" height="100">
-  </a>
-</h1>
-
 <div align="center">
-  blend1
+  <a href="https://github.com/polygoniq/blend1">
+    <img src="docs/images/logo.svg" alt="Logo" width="80" height="80">
+  </a>
+
+  <h3 align="center">blend1</h3>
+
+  Save Blender backup files to a different location than opened blend, with an easily accessible recall. Enhances cloud storage experience.
+  <br />
   <br />
   <a href="#about"><strong>Check out the screenshots »</strong></a>
-  <br />
   <br />
   <a href="https://github.com/polygoniq/blend1/issues/new?assignees=&labels=bug&template=01_BUG_REPORT.md&title=bug%3A+">Report a Bug</a>
   ·
   <a href="https://github.com/polygoniq/blend1/issues/new?assignees=&labels=enhancement&template=02_FEATURE_REQUEST.md&title=feat%3A+">Request a Feature</a>
   ·
   <a href="https://github.com/polygoniq/blend1/issues/new?assignees=&labels=question&template=04_SUPPORT_QUESTION.md&title=support%3A+">Ask a Question</a>
-</div>
+  <br />
 
-<div align="center">
-<br />
-
-[![Project license](https://img.shields.io/github/license/polygoniq/blend1.svg?style=flat-square)](LICENSE)
-[![Pull Requests welcome](https://img.shields.io/badge/PRs-welcome-ff69b4.svg?style=flat-square)](https://github.com/polygoniq/blend1/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22)
-[![Discord](https://img.shields.io/discord/742363791643115531)](https://polygoniq.com/discord/)
-[![Buy on BlenderMarket](https://img.shields.io/badge/Buy_on-BlenderMarket-orange)](https://blendermarket.com/products/blend1/)
-[![Buy on Gumroad](https://img.shields.io/badge/Buy_on-Gumroad-blue)](https://polygoniq.gumroad.com/l/blend1/)
-
+  [![Project license](https://img.shields.io/github/license/polygoniq/blend1.svg?style=flat-square)](LICENSE)
+  [![Pull Requests welcome](https://img.shields.io/badge/PRs-welcome-ff69b4.svg?style=flat-square)](https://github.com/polygoniq/blend1/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22)
+  [![Discord](https://img.shields.io/discord/742363791643115531)](https://polygoniq.com/discord/)
+  [![Buy on BlenderMarket](https://img.shields.io/badge/Buy_on-BlenderMarket-orange)](https://blendermarket.com/products/blend1?ref=673)
+  [![Buy on Gumroad](https://img.shields.io/badge/Buy_on-Gumroad-blue)](https://polygoniq.gumroad.com/l/blend1/)
 </div>
 
 <details open="open">
@@ -35,9 +31,11 @@
 - [Getting Started](#getting-started)
   - [Prerequisites](#prerequisites)
   - [Installation](#installation)
-    - [Download the addon ZIP](#download-the-addon-zip)
-    - [Install ZIP in Blender](#install-zip-in-blender)
-  - [Updating](#updating)
+    - [Blender 4.2 or newer](#blender-42-or-newer)
+    - [Blender 4.1 or older](#blender-41-or-older)
+      - [Download the ZIP](#download-the-zip)
+      - [Install ZIP in Blender](#install-zip-in-blender)
+    - [Updating](#updating)
 - [Usage](#usage)
 - [Roadmap](#roadmap)
 - [Support](#support)
@@ -89,19 +87,24 @@
 
 ### Installation
 
-#### Download the addon ZIP
+#### Blender 4.2 or newer
+Visit [polygoniq extensions repository](https://extensions.polygoniq.com), where we explain
+how to set it up as remote repository so you can install and update everything from Blender.
 
+
+#### Blender 4.1 or older
+##### Download the ZIP
 |                          Stable Release                                                  |                         Unstable Master Branch                   |
 | :--------------------------------------------------------------------------------------: | :--------------------------------------------------------------: |
 | Head over to [Releases](https://github.com/polygoniq/blend1/releases) for a stable ZIP.  | Click `Code` -> `Download ZIP` if you are feeling adventurous.   |
 
-#### Install ZIP in Blender
+##### Install ZIP in Blender
 
 Go to `Edit` -> `Preferences`. And select `Add-ons` in the left bar. Click the `Install...` button
 in the top section. Select the ZIP file you just downloaded and click `Install Add-on`. After the
 installation finishes, check the checkbox next to the `blend1` addon.
 
-### Updating
+#### Updating
 
 The addon can auto-update itself to latest stable or even unstable master version. Head over to
 `Edit` -> `Preferences` and select `Add-ons` in the left bar. Type `blend1` into the search bar

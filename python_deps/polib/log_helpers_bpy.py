@@ -2,14 +2,20 @@
 # copyright (c) 2018- polygoniq xyz s.r.o.
 
 import bpy
+import datetime
+import tempfile
 import typing
 import time
 import logging
+import os
+import shutil
+from . import telemetry_module_bpy
 
 
 def logged_operator(cls: typing.Type[bpy.types.Operator]):
     assert issubclass(
-        cls, bpy.types.Operator), "logged_operator only accepts classes inheriting bpy.types.Operator"
+        cls, bpy.types.Operator
+    ), "logged_operator only accepts classes inheriting bpy.types.Operator"
 
     logger = logging.getLogger(f"polygoniq.{cls.__module__}")
 
@@ -43,7 +49,8 @@ def logged_operator(cls: typing.Type[bpy.types.Operator]):
 
         def new_execute(self, context: bpy.types.Context):
             logger.info(
-                f"{cls.__name__} operator execute started with arguments {self.as_keywords()}")
+                f"{cls.__name__} operator execute started with arguments {self.as_keywords()}"
+            )
             start_time = time.time()
             try:
                 ret = cls._original_execute(self, context)
@@ -82,7 +89,8 @@ def logged_operator(cls: typing.Type[bpy.types.Operator]):
 
 def logged_panel(cls: typing.Type[bpy.types.Panel]):
     assert issubclass(
-        cls, bpy.types.Panel), "logged_panel only accepts classes inheriting bpy.types.Panel"
+        cls, bpy.types.Panel
+    ), "logged_panel only accepts classes inheriting bpy.types.Panel"
 
     logger = logging.getLogger(f"polygoniq.{cls.__module__}")
 
@@ -113,7 +121,8 @@ def logged_panel(cls: typing.Type[bpy.types.Panel]):
 
 def logged_preferences(cls: typing.Type[bpy.types.AddonPreferences]):
     assert issubclass(
-        cls, bpy.types.AddonPreferences), "logged_preferences only accepts classes inheriting bpy.types.AddonPreferences"
+        cls, bpy.types.AddonPreferences
+    ), "logged_preferences only accepts classes inheriting bpy.types.AddonPreferences"
 
     logger = logging.getLogger(f"polygoniq.{cls.__module__}")
 
@@ -129,3 +138,18 @@ def logged_preferences(cls: typing.Type[bpy.types.AddonPreferences]):
         cls.draw = new_draw
 
     return cls
+
+
+def pack_logs(telemetry: telemetry_module_bpy.TelemetryWrapper) -> str:
+    """Pack all logs into zip, create new timestamped directory in tempdir and save the zip there."""
+    temp_folder = tempfile.gettempdir()
+    log_path = os.path.join(temp_folder, "polygoniq_logs")
+    os.makedirs(log_path, exist_ok=True)
+    with open(os.path.join(log_path, "latest_telemetry.txt"), "w") as f:
+        f.write(telemetry.dump())
+    now = datetime.datetime.now()
+    output_folder_name = f"polygoniq_logs--{now.year:04d}-{now.month:02d}-{now.day:02d}T{now.hour:02d}-{now.minute:02d}-{now.second:02d}"
+    output_folder_path = os.path.join(temp_folder, output_folder_name)
+    os.mkdir(output_folder_path)
+    shutil.make_archive(os.path.join(output_folder_path, "polygoniq_logs"), "zip", log_path)
+    return output_folder_path

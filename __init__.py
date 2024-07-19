@@ -19,6 +19,7 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
+from . import addon_updater
 from . import addon_updater_ops
 import os
 import sys
@@ -32,11 +33,15 @@ import bpy
 import tempfile
 import logging
 import logging.handlers
+import importlib
+
 root_logger = logging.getLogger("polygoniq")
 logger = logging.getLogger(f"polygoniq.{__name__}")
 if not getattr(root_logger, "polygoniq_initialized", False):
     root_logger_formatter = logging.Formatter(
-        "P%(process)d:%(asctime)s:%(name)s:%(levelname)s: [%(filename)s:%(lineno)d] %(message)s", "%H:%M:%S")
+        "P%(process)d:%(asctime)s:%(name)s:%(levelname)s: [%(filename)s:%(lineno)d] %(message)s",
+        "%H:%M:%S",
+    )
     try:
         root_logger.setLevel(int(os.environ.get("POLYGONIQ_LOG_LEVEL", "20")))
     except (ValueError, TypeError):
@@ -53,31 +58,60 @@ if not getattr(root_logger, "polygoniq_initialized", False):
             when="h",
             interval=1,
             backupCount=2,
-            utc=True
+            utc=True,
         )
         root_logger_handler.setFormatter(root_logger_formatter)
         root_logger.addHandler(root_logger_handler)
     except:
         logger.exception(
             f"Can't create rotating log handler for polygoniq root logger "
-            f"in module \"{__name__}\", file \"{__file__}\"")
+            f"in module \"{__name__}\", file \"{__file__}\""
+        )
     setattr(root_logger, "polygoniq_initialized", True)
     logger.info(
-        f"polygoniq root logger initialized in module \"{__name__}\", file \"{__file__}\" -----")
+        f"polygoniq root logger initialized in module \"{__name__}\", file \"{__file__}\" -----"
+    )
 
 
+# To comply with extension encapsulation, after the addon initialization:
+# - sys.path needs to stay the same as before the initialization
+# - global namespace can not contain any additional modules outside of __package__
+
+# Dependencies for all 'production' addons are shipped in folder `./python_deps`
+# So we do the following:
+# - Add `./python_deps` to sys.path
+# - Import all dependencies to global namespace
+# - Manually remap the dependencies from global namespace in sys.modules to a subpackage of __package__
+# - Clear global namespace of remapped dependencies
+# - Remove `./python_deps` from sys.path
+# - For developer experience, import "real" dependencies again, only if TYPE_CHECKING is True
+
+# See https://docs.blender.org/manual/en/4.2/extensions/addons.html#extensions-and-namespace
+# for more details
 ADDITIONAL_DEPS_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "python_deps"))
 try:
     if os.path.isdir(ADDITIONAL_DEPS_DIR) and ADDITIONAL_DEPS_DIR not in sys.path:
         sys.path.insert(0, ADDITIONAL_DEPS_DIR)
 
+    dependencies = {
+        "polib",
+        "hatchery",  # hatchery is a transitive dependency from polib, but we still need to move it
+    }
+    for dependency in dependencies:
+        logger.debug(f"Importing additional dependency {dependency}")
+        dependency_module = importlib.import_module(dependency)
+        local_module_name = f"{__package__}.{dependency}"
+        sys.modules[local_module_name] = dependency_module
     for module_name in list(sys.modules.keys()):
-        # delete the already loaded polib module from python module cache to make sure we load
-        # the right one from scratch. this prevents the dreaded "polib-issue"
-        if module_name.startswith("polib"):
+        if module_name.startswith(tuple(dependencies)):
             del sys.modules[module_name]
 
-    import polib
+    from . import polib
+    from . import hatchery
+
+    if typing.TYPE_CHECKING:
+        import polib
+        import hatchery
 
 finally:
     if ADDITIONAL_DEPS_DIR in sys.path:
@@ -87,10 +121,10 @@ finally:
 bl_info = {
     "name": "blend1",
     "author": "polygoniq xyz s.r.o.",
-    "version": (1, 0, 1),
+    "version": (1, 0, 2),  # also bump version in register()
     "blender": (3, 3, 0),
     "location": "blend one tab in the sidebar of the 3D View window",
-    "description": "Allows you to save blend backup files in external location. Gives a new panel to recall backups.",
+    "description": "Save Blender backup files to a different location than opened blend, with an easily accessible recall. Enhances cloud storage experience.",
     "category": "System",
 }
 telemetry = polib.get_telemetry("blend1")
@@ -104,23 +138,39 @@ def autodetect_backup_path() -> str:
     return os.path.expanduser("~/blender_backups")
 
 
+class ShowReleaseNotes(bpy.types.Operator):
+    bl_idname = "blend1.show_release_notes"
+    bl_label = "Show Release Notes"
+    bl_description = "Show the release notes for the latest version of blend1"
+    bl_options = {'REGISTER'}
+
+    release_tag: bpy.props.StringProperty(
+        name="Release Tag",
+        default="",
+    )
+
+    def execute(self, context: bpy.types.Context):
+        polib.ui_bpy.show_release_notes_popup(context, __package__, self.release_tag)
+        return {'FINISHED'}
+
+
+ADDON_CLASSES.append(ShowReleaseNotes)
+
+
 @polib.log_helpers_bpy.logged_preferences
 @addon_updater_ops.make_annotations
 class Preferences(bpy.types.AddonPreferences):
-    bl_idname = __name__
+    bl_idname = __package__
 
     # Addon updater preferences.
     auto_check_update: bpy.props.BoolProperty(
         name="Auto-check for Update",
         description="If enabled, auto-check for updates using an interval",
-        default=True
+        default=True,
     )
 
     updater_interval_months: bpy.props.IntProperty(
-        name='Months',
-        description="Number of months between checking for updates",
-        default=0,
-        min=0
+        name='Months', description="Number of months between checking for updates", default=0, min=0
     )
 
     updater_interval_days: bpy.props.IntProperty(
@@ -128,7 +178,7 @@ class Preferences(bpy.types.AddonPreferences):
         description="Number of days between checking for updates",
         default=7,
         min=0,
-        max=31
+        max=31,
     )
 
     updater_interval_hours: bpy.props.IntProperty(
@@ -136,7 +186,7 @@ class Preferences(bpy.types.AddonPreferences):
         description="Number of hours between checking for updates",
         default=0,
         min=0,
-        max=23
+        max=23,
     )
 
     updater_interval_minutes: bpy.props.IntProperty(
@@ -144,7 +194,7 @@ class Preferences(bpy.types.AddonPreferences):
         description="Number of minutes between checking for updates",
         default=0,
         min=0,
-        max=59
+        max=59,
     )
 
     backup_path: bpy.props.StringProperty(
@@ -152,9 +202,10 @@ class Preferences(bpy.types.AddonPreferences):
         subtype="DIR_PATH",
         default=autodetect_backup_path(),
         update=lambda self, context: polib.utils_bpy.absolutize_preferences_path(
-            self, context, "backup_path"),
+            self, context, "backup_path"
+        ),
         description="This is the directory where all the blend file backups are stored. "
-        "User is responsible for keeping its size in check."
+        "User is responsible for keeping its size in check.",
     )
 
     save_versions: bpy.props.IntProperty(
@@ -163,7 +214,7 @@ class Preferences(bpy.types.AddonPreferences):
         min=1,
         max=256,
         description="The number of old versions to maintain. Similar to Blender's stock "
-        "save versions property."
+        "save versions property.",
     )
 
     hash_parent_directory: bpy.props.BoolProperty(
@@ -172,7 +223,7 @@ class Preferences(bpy.types.AddonPreferences):
         description="Put backups in a directory comprising of parent basename (e.g. MyProject) "
         "and a hash generated from the whole path. This avoids potential conflicts if you have "
         "blends of the same name in similarly named folders. It's recommended to enable this "
-        "to lower the probability of file conflicts."
+        "to lower the probability of file conflicts.",
     )
 
     def draw(self, context):
@@ -189,40 +240,56 @@ class Preferences(bpy.types.AddonPreferences):
         row = self.layout.row()
         row.operator(OpenBackupFolder.bl_idname, icon='FILE_FOLDER')
         row = self.layout.row()
-        row.operator(OpenLogFolder.bl_idname, icon='EXPERIMENTAL')
+        row.operator(PackLogs.bl_idname, icon='EXPERIMENTAL')
 
         self.layout.separator()
         row = self.layout.row()
         col = row.column()
-        addon_updater_ops.update_settings_ui(self, context, col)
+
+        if bpy.app.version < (4, 2, 0) or (bpy.app.version >= (4, 2, 0) and bpy.app.online_access):
+            self.draw_update_settings(context, col)
 
         polib.ui_bpy.draw_settings_footer(self.layout)
+
+    def draw_update_settings(self, context: bpy.types.Context, layout: bpy.types.UILayout) -> None:
+        col = layout.column()
+        addon_updater_ops.update_settings_ui(self, context, col)
+        split = col.split(factor=0.5)
+        left_row = split.row()
+        left_row.enabled = bool(addon_updater.Updater.update_ready)
+        left_row.operator(
+            ShowReleaseNotes.bl_idname, text="Latest Release Notes", icon='PRESET_NEW'
+        ).release_tag = ""
+        right_row = split.row()
+        current_release_tag = polib.utils_bpy.get_release_tag_from_version(
+            addon_updater.Updater.current_version
+        )
+        right_row.operator(
+            ShowReleaseNotes.bl_idname, text="Current Release Notes", icon='PRESET'
+        ).release_tag = current_release_tag
 
 
 ADDON_CLASSES.append(Preferences)
 
 
 @polib.log_helpers_bpy.logged_operator
-class OpenLogFolder(bpy.types.Operator):
-    bl_idname = "blend1.open_log_folder"
-    bl_label = "Open Log Folder (Debug Information)"
-    bl_description = "Opens the directory with logs from all polygoniq addons"
+class PackLogs(bpy.types.Operator):
+    bl_idname = "blend1.pack_logs"
+    bl_label = "Pack Logs"
+    bl_description = "Archives polygoniq logs as zip file and opens its location"
     bl_options = {'REGISTER'}
 
     def execute(self, context):
-        log_path = os.path.join(tempfile.gettempdir(), "polygoniq_logs")
-        os.makedirs(log_path, exist_ok=True)
-        with open(os.path.join(log_path, "latest_telemetry.txt"), "w") as f:
-            f.write(telemetry.dump())
-        polib.utils_bpy.xdg_open_file(log_path)
+        packed_logs_directory_path = polib.log_helpers_bpy.pack_logs(telemetry)
+        polib.utils_bpy.xdg_open_file(packed_logs_directory_path)
         return {'FINISHED'}
 
 
-ADDON_CLASSES.append(OpenLogFolder)
+ADDON_CLASSES.append(PackLogs)
 
 
 def blend1_get_preferences(context):
-    return context.preferences.addons[__name__].preferences
+    return context.preferences.addons[__package__].preferences
 
 
 def generate_backup_directory_path(prefs, filepath: str) -> str:
@@ -243,7 +310,7 @@ def get_suffix_from_backup_file(backup_basename: str, original_basename: str) ->
     assert len(backup_basename) > len(original_basename)
     assert backup_basename.startswith(original_basename)
 
-    return int(backup_basename[len(original_basename):])
+    return int(backup_basename[len(original_basename) :])
 
 
 def cycle_backups_in_directory(prefs, backup_directory: str, original_basename: str) -> None:
@@ -270,7 +337,7 @@ def cycle_backups_in_directory(prefs, backup_directory: str, original_basename: 
 
         os.rename(
             os.path.join(backup_directory, old_backup_basename),
-            os.path.join(backup_directory, new_backup_basename)
+            os.path.join(backup_directory, new_backup_basename),
         )
 
     assert not os.path.exists(os.path.join(backup_directory, f"{original_basename}1"))
@@ -298,8 +365,9 @@ def get_backup_versions_enum_items(context) -> typing.List[typing.Tuple[str, str
         full_path = os.path.join(backup_directory_path, f"{original_basename}{backup_nr}")
         mtime = time.localtime(os.path.getmtime(full_path))
         str_mtime = time.strftime("%H:%M:%S %Y-%m-%d", mtime)
-        ret.append((full_path, f"blend{backup_nr} {str_mtime}",
-                    f"{full_path}, backup from {str_mtime}"))
+        ret.append(
+            (full_path, f"blend{backup_nr} {str_mtime}", f"{full_path}, backup from {str_mtime}")
+        )
 
     return ret
 
@@ -318,7 +386,8 @@ def recall_backup_by_full_path(backup_full_path: str) -> bool:
     suffix = 1
     while True:
         current_blend_backup_path = os.path.join(
-            parent_dir, f"{current_blend_backup_path_template}{suffix}")
+            parent_dir, f"{current_blend_backup_path_template}{suffix}"
+        )
         if not os.path.exists(current_blend_backup_path):
             break
         suffix += 1
@@ -364,10 +433,9 @@ class RecallBackupMultiple(bpy.types.Operator):
 
     version: bpy.props.EnumProperty(
         name="Version",
-        items=lambda self, context:
-        get_backup_versions_enum_items(
+        items=lambda self, context: get_backup_versions_enum_items(
             context,
-        )
+        ),
     )
 
     def execute(self, context):
@@ -481,7 +549,9 @@ class BlendOnePanel(bpy.types.Panel):
     bl_order = 200
 
     def draw_header(self, context: bpy.types.Context):
-        self.layout.label(text="", icon_value=polib.ui_bpy.icon_manager.get_icon_id("logo_blend1"))
+        self.layout.label(
+            text="", icon_value=polib.ui_bpy.icon_manager.get_polygoniq_addon_icon_id("blend1")
+        )
 
     def draw(self, context):
         row = self.layout.row()
@@ -539,7 +609,8 @@ def external_save_pre_handler(_):
             # for some reason it doesn't exist. We can't backup a non-existent file
             logger.warning(
                 f"bpy.data.filepath={bpy.data.filepath} does not exist while saving data!"
-                f"Can't backup a non-existent file... Skipping the backup!")
+                f"Can't backup a non-existent file... Skipping the backup!"
+            )
             return
 
         prefs = blend1_get_preferences(bpy.context)
@@ -550,8 +621,9 @@ def external_save_pre_handler(_):
         # We would strongly prefer to move/rename instead of copy but we don't know if the user
         # wants to "save as" or just "save". This is very hard to get from bpy so we have to
         # copyfile :-(
-        shutil.copyfile(bpy.data.filepath, os.path.join(
-            backup_directory_path, f"{original_basename}1"))
+        shutil.copyfile(
+            bpy.data.filepath, os.path.join(backup_directory_path, f"{original_basename}1")
+        )
 
     except:
         logger.exception(f"Uncaught exception raised while saving blend file")
@@ -567,7 +639,9 @@ def external_load_post_handler(_):
 
 
 def register():
-    addon_updater_ops.register(bl_info)
+    # We pass mock "bl_info" to the updater, since Blender 4.2.0 the "bl_info" is no longer
+    # available in this scope.
+    addon_updater_ops.register({"version": (1, 0, 2)})
 
     for cls in ADDON_CLASSES:
         bpy.utils.register_class(cls)
@@ -586,7 +660,11 @@ def unregister():
     # Remove all nested modules from module cache, more reliable than importlib.reload(..)
     # Idea by BD3D / Jacques Lucke
     for module_name in list(sys.modules.keys()):
-        if module_name.startswith(__name__):
+        if module_name.startswith(__package__):
             del sys.modules[module_name]
 
     addon_updater_ops.unregister()
+
+    # We clear the master 'polib' icon manager to prevent ResourceWarning and leaks.
+    # If other addon uses the icon_manager, the previews will be reloaded on demand.
+    polib.ui_bpy.icon_manager.clear()

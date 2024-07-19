@@ -1,0 +1,19 @@
+schema_version = "1.0.0"
+
+id = "blend1"
+version = "1.0.2"
+name = "blend1"
+tagline = "Save Blender backup files to a different location than opened blend, with an easily accessible recall. Enhances cloud storage experience"
+maintainer = "polygoniq <ahoy@polygoniq.com>"
+type = "add-on"
+
+permissions = ["files", "network"]
+tags = ["Scene", "User Interface"]
+blender_version_min = "4.2.0"
+
+license = [
+  "SPDX:GPL-3.0-or-later",
+]
+copyright = [
+  "2018- polygoniq xyz s.r.o",
+]

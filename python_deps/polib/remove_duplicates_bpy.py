@@ -9,12 +9,12 @@ import typing
 from . import utils_bpy
 
 import logging
+
 logger = logging.getLogger(f"polygoniq.{__name__}")
 
 
 def polygoniq_duplicate_data_filter(
-    data: bpy.types.ID,
-    data_filepaths: typing.Optional[typing.Set[str]] = None
+    data: bpy.types.ID, data_filepaths: typing.Optional[typing.Set[str]] = None
 ) -> bool:
     """Filters polygoniq duplicate data based on addon prefix and duplicate suffix.
 
@@ -29,7 +29,7 @@ def polygoniq_duplicate_data_filter(
     if data_filepaths is None:
         data_filepaths = set()
 
-    KNOWN_PREFIXES = ("aq_", "bq_", "mq_", "tq_")
+    KNOWN_PREFIXES = ("aq_", "bq_", "mq_", "tq_", "iq_", "eq_", "st_", "am154_", "am176_")
 
     orig_name = utils_bpy.remove_object_duplicate_suffix(data.name)
     if isinstance(data, bpy.types.NodeTree):
